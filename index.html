@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10b981">
+<title>UniRadio - Radios du Monde</title>
+<style>
+:root{--bg:#121212;--card:#1e1e1e;--tx:#e0e0e0;--bd:#2c2c2c;--ac:#10b981;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme="light"]{--bg:#f4f5f7;--card:#fff;--tx:#1c2128;--bd:#c8ccd4;--ac:#10b981;color-scheme:light}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px system-ui,sans-serif;padding-bottom:90px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:8px;z-index:9;border-bottom:1px solid var(--bd)}
+.row{display:flex;gap:6px;margin:6px 0}
+input,select,button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:9px}
+input{flex:1;min-width:0;width:100%;margin:3px 0}
+button{cursor:pointer}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+nav button{white-space:nowrap}
+nav button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+main{padding:8px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;margin:8px 0;padding:4px 10px}
+summary{font-weight:600;padding:10px 0}
+.r{display:flex;align-items:center;border-top:1px solid var(--bd)}
+.r button.play-btn{flex:1;text-align:left;background:none;border:none;padding:11px 6px;color:var(--tx);cursor:pointer;display:flex;flex-direction:column}
+.r small{display:block;opacity:.65;font-size:12px}
+.fav-btn{background:none;border:none;cursor:pointer;font-size:18px;padding:0 8px;}
+.sec{font-weight:600;margin:14px 4px 2px}
+.hint{opacity:.75;padding:8px 2px;font-size:13px}
+/* Barre de lecture fixe en bas */
+#player-bar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);padding:10px 16px;display:flex;align-items:center;gap:12px;z-index:99}
+#player-bar audio{flex:1;height:40px}
+#current-playing{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <input id="q" placeholder="Rechercher une radio, un pays, un genre..." autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button id="gs" title="Rechercher">🔍</button>
+    <button id="th" title="Clair / sombre">◐</button>
+  </div>
+  <nav>
+    <button data-t="all" class="on">🌍 Toutes</button>
+    <button data-t="genres">🎵 Genres</button>
+    <button data-t="world">🗺️ Par Pays</button>
+    <button data-t="favs">⭐ Favoris</button>
+  </nav>
+</header>
+<main>
+  <div id="out"></div>
+  <div class="hint" id="st"></div>
+</main>
+
+<div id="player-bar">
+  <div id="current-playing">Sélectionne une station</div>
+  <audio id="audio" controls></audio>
+</div>
+
+<script>
+const DATA = {
+  "genres": [
+    {"g": "Jazz & Blues", "t": [
+      {"n": "FIP Jazz (France)", "u": "https://icecast.radiofrance.fr/fipjazz-midfi.mp3", "loc": "France"},
+      {"n": "Jazz Radio (France)", "u": "https://stream.jazzradio.fr/jazzradio-high.mp3", "loc": "France"},
+      {"n2": "Smooth Jazz 24/7 (USA)", "n": "Smooth Jazz Florida", "u": "https://audiovibe.streamguys1.com/live", "loc": "États-Unis"}
+    ]},
+    {"g": "Classique & Acoustique", "t": [
+      {"n": "France Musique", "u": "https://icecast.radiofrance.fr/francemusique-midfi.mp3", "loc": "France"},
+      {"n": "Radio Classique", "u": "https://radioclassique.ice.infomaniak.ch/radioclassique-high.mp3", "loc": "France"},
+      {"n": "Swiss Classic", "u": "https://stream.srg-ssr.ch/m/rsc_fr/mp3_128", "loc": "Suisse"}
+    ]},
+    {"g": "Actualités & Talk", "t": [
+      {"n": "France Info", "u": "https://icecast.radiofrance.fr/franceinfo-midfi.mp3", "loc": "France"},
+      {"n": "RFI Monde", "u": "https://rfi-monde-live.ice.infomaniak.ch/rfi-monde-high.mp3", "loc": "International"},
+      {"n": "BBC World Service", "u": "https://stream.live.vc.bbcmedia.co.uk/bbc_world_service", "loc": "Royaume-Uni"}
+    ]}
+  ],
+  "world": [
+    {"g": "🇫🇷 France", "t": [
+      {"n": "France Inter", "u": "https://icecast.radiofrance.fr/franceinter-midfi.mp3", "loc": "France"},
+      {"n": "FIP", "u": "https://icecast.radiofrance.fr/fip-midfi.mp3", "loc": "France"},
+      {"n": "NRJ", "u": "https://stream.rcs.revma.com/ye5kghkzv0ruv", "loc": "France"},
+      {"n": "RTL", "u": "https://streaming.radio.rtl.fr/rtl-1-44-128", "loc": "France"}
+    ]},
+    {"g": "🇺🇸 États-Unis", "t": [
+      {"n": "WQXR Classical New York", "u": "https://stream.wqxr.org/wqxr", "loc": "USA"},
+      {"n": "KEXP 90.3 FM (Seattle)", "u": "https://kexp-mp3-128.streamguys1.com/kexp128.mp3", "loc": "USA"},
+      {"n": "WBGO Jazz 88.3", "u": "https://wbgo.streamguys1.com/wbgo", "loc": "USA"}
+    ]},
+    {"g": "🇬🇧 Royaume-Uni", "t": [
+      {"n": "BBC Radio 1", "u": "https://stream.live.vc.bbcmedia.co.uk/bbc_radio_one", "loc": "UK"},
+      {"n": "BBC Radio 4", "u": "https://stream.live.vc.bbcmedia.co.uk/bbc_radio_fourfm", "loc": "UK"}
+    ]},
+    {"g": "🇯🇵 Japon", "t": [
+      {"n": "J-Pop Powerplay (Tokyo)", "u": "https://kathy.torontocast.com:3060/stream", "loc": "Japon"},
+      {"n": "OTOTOY Radio", "u": "https://stream.ototoy.jp/radio/livestream", "loc": "Japon"}
+    ]}
+  ]
+};
+
+const q = document.getElementById('q'), out = document.getElementById('out'), st = document.getElementById('st');
+const audio = document.getElementById('audio'), currentPlaying = document.getElementById('current-playing');
+let tab = 'all';
+
+let favorites = JSON.parse(localStorage.getItem('radio_favs') || '[]');
+
+function render() {
+  const val = q.value.toLowerCase().trim();
+  let html = '';
+  let total = 0;
+  let currentCats = [];
+
+  if (tab === 'favs') {
+    currentCats = [{ g: '⭐ Mes Radios Favorites', t: favorites }];
+  } else if (tab === 'all') {
+    currentCats = [...(DATA.genres || []), ...(DATA.world || [])];
+  } else {
+    currentCats = DATA[tab] || [];
+  }
+
+  currentCats.forEach(cat => {
+    let rows = '';
+    cat.t.forEach(item => {
+      // Filtrage par texte si recherche active
+      if (val && !item.n.toLowerCase().includes(val) && !cat.g.toLowerCase().includes(val)) {
+        return;
+      }
+
+      const isFav = favorites.some(f => f.u === item.u);
+      const starIcon = isFav ? '⭐' : '☆';
+
+      rows += `
+        <div class="r">
+          <button class="fav-btn" data-name="${encodeURIComponent(item.n)}" data-url="${encodeURIComponent(item.u)}" data-group="${encodeURIComponent(cat.g)}" title="Favoris">${starIcon}</button>
+          <button class="play-btn" onclick="playRadio('${item.n.replace(/'/g, "\\'")}', '${item.u}')">
+            ${item.n}
+            <small>${item.loc || cat.g}</small>
+          </button>
+        </div>`;
+      total++;
+    });
+    if (rows) {
+      html += `<div class="card"><div class="sec">${cat.g}</div>${rows}</div>`;
+    }
+  });
+
+  out.innerHTML = html || '<div class="card"><div class="hint">Aucune radio trouvée.</div></div>';
+  st.textContent = `${total} station(s) affichée(s)`;
+
+  document.querySelectorAll('.fav-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const name = decodeURIComponent(e.target.dataset.name);
+      const url = decodeURIComponent(e.target.dataset.url);
+      const group = decodeURIComponent(e.target.dataset.group);
+      
+      const index = favorites.findIndex(f => f.u === url);
+      if (index > -1) {
+        favorites.splice(index, 1);
+      } else {
+        favorites.push({ n: name, u: url, g: group });
+      }
+      localStorage.setItem('radio_favs', JSON.stringify(favorites));
+      render();
+    });
+  });
+}
+
+function playRadio(name, url) {
+  currentPlaying.textContent = name;
+  audio.src = url;
+  audio.play().catch(e => {
+    alert("Impossible de lire ce flux direct (protection SSL ou flux inactif).");
+  });
+}
+
+q.addEventListener('input', render);
+document.querySelectorAll('nav button').forEach(b => {
+  b.addEventListener('click', e => {
+    document.querySelectorAll('nav button').forEach(x => x.classList.remove('on'));
+    e.target.classList.add('on');
+    tab = e.target.dataset.t;
+    render();
+  });
+});
+
+document.getElementById('th').addEventListener('click', () => {
+  const root = document.documentElement;
+  const currentTheme = root.getAttribute('data-theme');
+  root.setAttribute('data-theme', currentTheme === 'light' ? 'dark' : 'light');
+});
+
+document.getElementById('gs').addEventListener('click', render);
+
+render();
+</script>
+</body>
+</html>
